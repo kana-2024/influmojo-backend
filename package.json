@@ -4,7 +4,7 @@
   "description": "Backend API server for Influ Mojo mobile app",
   "main": "src/server.ts",
   "scripts": {
-    "start": "node -r dotenv/config src/server.js",
+    "start": "node src/server.js",
     "dev": "node -r dotenv/config --watch src/server.js",
     "build": "echo 'No build step required'",
     "test": "echo 'No tests specified'",
