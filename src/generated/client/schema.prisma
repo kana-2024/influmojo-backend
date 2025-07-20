@@ -1,0 +1,589 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                        BigInt                 @id @default(autoincrement())
+  email                     String?                @unique
+  password_hash             String?
+  user_type                 UserType
+  name                      String
+  first_name                String?
+  last_name                 String?
+  profile_image_url         String?
+  phone                     String?                @unique
+  timezone                  String?
+  language                  String?                @default("en")
+  email_verified            Boolean                @default(false)
+  status                    UserStatus             @default(pending)
+  created_at                DateTime               @default(now())
+  updated_at                DateTime               @updatedAt
+  last_login_at             DateTime?
+  auth_provider             String?                @default("email")
+  phone_verified            Boolean                @default(false)
+  onboarding_completed      Boolean                @default(false)
+  onboarding_step           Int?                   @default(0)
+  age                       Int?
+  brand_profiles            BrandProfile[]
+  admin_channels            CollaborationChannel[] @relation("AdminChannels")
+  content_reviews           ContentReview[]        @relation("ContentReviewers")
+  admin_content_submissions ContentSubmission[]    @relation("AdminContentSubmissions")
+  creator_profiles          CreatorProfile?
+  sent_messages             Message[]              @relation("MessageSender")
+  notifications             Notification[]
+  admin_packages            Package[]              @relation("AdminPackages")
+  admin_payments            Payment[]              @relation("AdminPayments")
+  payments_payee            Payment[]              @relation("PaymentPayee")
+  payments_payer            Payment[]              @relation("PaymentPayer")
+  phone_verifications       PhoneVerification[]
+  reviews_reviewed          Review[]               @relation("ReviewReviewed")
+  reviews_reviewer          Review[]               @relation("ReviewReviewer")
+  kyc_verifications         KYC[]                  @relation("KYCVerifier")
+}
+
+model BrandProfile {
+  id               BigInt          @id @default(autoincrement())
+  user_id          BigInt
+  company_name     String
+  industry         String?
+  website_url      String?
+  description      String?
+  logo_url         String?
+  company_size     CompanySize?
+  location_country String?
+  location_city    String?
+  verified         Boolean         @default(false)
+  created_at       DateTime        @default(now())
+  updated_at       DateTime        @updatedAt
+  user             User            @relation(fields: [user_id], references: [id])
+  campaigns        Campaign[]
+  collaborations   Collaboration[]
+  invoices         Invoice[]
+}
+
+model CreatorProfile {
+  id                    BigInt                @id @default(autoincrement())
+  user_id               BigInt                @unique
+  email                 String?
+  bio                   String?
+  location_country      String?
+  location_city         String?
+  location_state        String?
+  location_pincode      String?
+  content_categories    Json?
+  min_rate              Decimal?
+  max_rate              Decimal?
+  rate_currency         String?               @default("USD")
+  availability_status   AvailabilityStatus?   @default(available)
+  verified              Boolean               @default(false)
+  featured              Boolean               @default(false)
+  rating                Decimal?              @default(0.00)
+  total_collaborations  Int                   @default(0)
+  created_at            DateTime              @default(now())
+  updated_at            DateTime              @updatedAt
+  average_response_time String?
+  date_of_birth         DateTime?
+  gender                String?
+  social_platforms      Json? // Store as JSON array
+  follower_count        BigInt?               @default(0)
+  availability          String? // Full-time, Part-time, etc.
+  collaboration_types   Json? // Store as JSON array
+  interests             Json? // Store as JSON array (languages, etc.)
+  campaign_applications CampaignApplication[]
+  collaborations        Collaboration[]
+  user                  User                  @relation(fields: [user_id], references: [id])
+  invoices              Invoice[]
+  social_media_accounts SocialMediaAccount[]
+  kyc                   KYC?
+  portfolio_items       PortfolioItem[]
+}
+
+model SocialMediaAccount {
+  id              BigInt         @id @default(autoincrement())
+  creator_id      BigInt
+  platform        SocialPlatform
+  username        String
+  url             String?
+  follower_count  BigInt         @default(0)
+  engagement_rate Decimal        @default(0.00)
+  avg_views       BigInt         @default(0)
+  verified        Boolean        @default(false)
+  last_updated    DateTime       @default(now())
+  created_at      DateTime       @default(now())
+  creator         CreatorProfile @relation(fields: [creator_id], references: [id])
+
+  @@unique([creator_id, platform])
+}
+
+model Campaign {
+  id                          BigInt                @id @default(autoincrement())
+  brand_id                    BigInt
+  title                       String
+  description                 String?
+  campaign_type               CampaignType
+  target_platforms            Json?
+  budget_min                  Decimal?
+  budget_max                  Decimal?
+  currency                    String?               @default("USD")
+  target_demographics         Json?
+  required_follower_count_min BigInt                @default(0)
+  required_follower_count_max BigInt?
+  content_guidelines          String?
+  hashtags                    Json?
+  mentions                    Json?
+  deliverables                Json?
+  deadline                    DateTime?
+  status                      CampaignStatus        @default(draft)
+  applications_count          Int                   @default(0)
+  max_collaborators           Int                   @default(1)
+  created_at                  DateTime              @default(now())
+  updated_at                  DateTime              @updatedAt
+  brand                       BrandProfile          @relation(fields: [brand_id], references: [id])
+  campaign_analytics          CampaignAnalytics[]
+  campaign_applications       CampaignApplication[]
+  collaborations              Collaboration[]
+}
+
+model CampaignApplication {
+  id                      BigInt            @id @default(autoincrement())
+  campaign_id             BigInt
+  creator_id              BigInt
+  proposed_rate           Decimal
+  currency                String            @default("USD")
+  pitch_message           String?
+  portfolio_links         Json?
+  estimated_delivery_date DateTime?
+  status                  ApplicationStatus @default(pending)
+  applied_at              DateTime          @default(now())
+  responded_at            DateTime?
+  campaign                Campaign          @relation(fields: [campaign_id], references: [id])
+  creator                 CreatorProfile    @relation(fields: [creator_id], references: [id])
+  collaboration           Collaboration?
+
+  @@unique([campaign_id, creator_id])
+}
+
+model Collaboration {
+  id                  BigInt                @id @default(autoincrement())
+  campaign_id         BigInt
+  brand_id            BigInt
+  creator_id          BigInt
+  application_id      BigInt                @unique
+  agreed_rate         Decimal
+  currency            String                @default("USD")
+  contract_terms      String?
+  deadline            DateTime?
+  status              CollaborationStatus   @default(active)
+  started_at          DateTime              @default(now())
+  completed_at        DateTime?
+  application         CampaignApplication   @relation(fields: [application_id], references: [id])
+  brand               BrandProfile          @relation(fields: [brand_id], references: [id])
+  campaign            Campaign              @relation(fields: [campaign_id], references: [id])
+  creator             CreatorProfile        @relation(fields: [creator_id], references: [id])
+  channels            CollaborationChannel?
+  content_submissions ContentSubmission[]
+  invoices            Invoice[]
+  packages            Package[]
+  payments            Payment[]
+  reviews             Review[]
+}
+
+model ContentSubmission {
+  id                  BigInt               @id @default(autoincrement())
+  collaboration_id    BigInt
+  admin_id            BigInt
+  content_type        ContentType
+  content_url         String?
+  caption             String?
+  hashtags            Json?
+  mentions            Json?
+  platform            SocialPlatform
+  submission_notes    String?
+  status              ContentStatus        @default(draft)
+  submitted_at        DateTime             @default(now())
+  reviewed_at         DateTime?
+  published_at        DateTime?
+  post_url            String?
+  content_performance ContentPerformance[]
+  content_reviews     ContentReview[]      @relation("ContentReviewers")
+  admin               User                 @relation("AdminContentSubmissions", fields: [admin_id], references: [id])
+  collaboration       Collaboration        @relation(fields: [collaboration_id], references: [id])
+}
+
+model ContentReview {
+  id                    BigInt            @id @default(autoincrement())
+  content_submission_id BigInt
+  reviewer_id           BigInt
+  review_type           ReviewType
+  feedback              String?
+  created_at            DateTime          @default(now())
+  content_submission    ContentSubmission @relation("ContentReviewers", fields: [content_submission_id], references: [id])
+  reviewer              User              @relation("ContentReviewers", fields: [reviewer_id], references: [id])
+}
+
+model Payment {
+  id               BigInt        @id @default(autoincrement())
+  collaboration_id BigInt
+  payer_id         BigInt
+  payee_id         BigInt
+  admin_id         BigInt
+  amount           Decimal
+  currency         String        @default("USD")
+  platform_fee     Decimal       @default(0.00)
+  net_amount       Decimal
+  payment_method   PaymentMethod
+  transaction_id   String?
+  status           PaymentStatus @default(pending)
+  initiated_at     DateTime      @default(now())
+  completed_at     DateTime?
+  failure_reason   String?
+  admin            User          @relation("AdminPayments", fields: [admin_id], references: [id])
+  collaboration    Collaboration @relation(fields: [collaboration_id], references: [id])
+  payee            User          @relation("PaymentPayee", fields: [payee_id], references: [id])
+  payer            User          @relation("PaymentPayer", fields: [payer_id], references: [id])
+}
+
+model Invoice {
+  id               BigInt         @id @default(autoincrement())
+  collaboration_id BigInt
+  brand_id         BigInt
+  creator_id       BigInt
+  invoice_number   String         @unique
+  amount           Decimal
+  currency         String         @default("USD")
+  tax_amount       Decimal        @default(0.00)
+  total_amount     Decimal
+  due_date         DateTime
+  status           InvoiceStatus  @default(draft)
+  issued_at        DateTime       @default(now())
+  paid_at          DateTime?
+  brand            BrandProfile   @relation(fields: [brand_id], references: [id])
+  collaboration    Collaboration  @relation(fields: [collaboration_id], references: [id])
+  creator          CreatorProfile @relation(fields: [creator_id], references: [id])
+}
+
+model Message {
+  id           BigInt               @id @default(autoincrement())
+  channel_id   BigInt
+  sender_id    BigInt
+  message_text String
+  message_type MessageType          @default(text)
+  file_url     String?
+  file_name    String?
+  read_at      DateTime?
+  created_at   DateTime             @default(now())
+  channel      CollaborationChannel @relation(fields: [channel_id], references: [id])
+  sender       User                 @relation("MessageSender", fields: [sender_id], references: [id])
+}
+
+model Review {
+  id               BigInt          @id @default(autoincrement())
+  collaboration_id BigInt
+  reviewer_id      BigInt
+  reviewed_id      BigInt
+  rating           Int
+  review_text      String?
+  review_type      ReviewDirection
+  is_public        Boolean         @default(true)
+  created_at       DateTime        @default(now())
+  collaboration    Collaboration   @relation(fields: [collaboration_id], references: [id])
+  reviewed         User            @relation("ReviewReviewed", fields: [reviewed_id], references: [id])
+  reviewer         User            @relation("ReviewReviewer", fields: [reviewer_id], references: [id])
+
+  @@unique([collaboration_id, reviewer_id])
+}
+
+model CampaignAnalytics {
+  id            BigInt   @id @default(autoincrement())
+  campaign_id   BigInt
+  metric_name   String
+  metric_value  BigInt
+  recorded_date DateTime
+  created_at    DateTime @default(now())
+  campaign      Campaign @relation(fields: [campaign_id], references: [id])
+
+  @@unique([campaign_id, metric_name, recorded_date])
+}
+
+model ContentPerformance {
+  id                    BigInt            @id @default(autoincrement())
+  content_submission_id BigInt
+  platform              SocialPlatform
+  likes_count           BigInt            @default(0)
+  comments_count        BigInt            @default(0)
+  shares_count          BigInt            @default(0)
+  views_count           BigInt            @default(0)
+  reach_count           BigInt            @default(0)
+  engagement_rate       Decimal           @default(0.00)
+  recorded_at           DateTime          @default(now())
+  content_submission    ContentSubmission @relation(fields: [content_submission_id], references: [id])
+}
+
+model Category {
+  id          Int        @id @default(autoincrement())
+  name        String
+  slug        String     @unique
+  description String?
+  parent_id   Int?
+  is_active   Boolean    @default(true)
+  sort_order  Int        @default(0)
+  created_at  DateTime   @default(now())
+  parent      Category?  @relation("CategoryParent", fields: [parent_id], references: [id])
+  children    Category[] @relation("CategoryParent")
+}
+
+model Notification {
+  id         BigInt    @id @default(autoincrement())
+  user_id    BigInt
+  type       String
+  title      String
+  message    String
+  data       Json?
+  read_at    DateTime?
+  created_at DateTime  @default(now())
+  user       User      @relation(fields: [user_id], references: [id])
+}
+
+model PlatformSetting {
+  id            Int         @id @default(autoincrement())
+  setting_key   String      @unique
+  setting_value String
+  setting_type  SettingType @default(string)
+  description   String?
+  updated_at    DateTime    @updatedAt
+}
+
+model CollaborationChannel {
+  id               BigInt        @id @default(autoincrement())
+  collaboration_id BigInt        @unique
+  admin_id         BigInt
+  created_at       DateTime      @default(now())
+  admin            User          @relation("AdminChannels", fields: [admin_id], references: [id])
+  collaboration    Collaboration @relation(fields: [collaboration_id], references: [id])
+  messages         Message[]
+}
+
+model Package {
+  id               BigInt        @id @default(autoincrement())
+  collaboration_id BigInt
+  admin_id         BigInt
+  type             PackageType
+  title            String
+  description      String?
+  price            Decimal
+  deliverables     Json?
+  created_at       DateTime      @default(now())
+  admin            User          @relation("AdminPackages", fields: [admin_id], references: [id])
+  collaboration    Collaboration @relation(fields: [collaboration_id], references: [id])
+}
+
+model PhoneVerification {
+  id          BigInt    @id @default(autoincrement())
+  user_id     BigInt?
+  phone       String
+  code        String
+  token       String    @unique
+  expires_at  DateTime
+  verified_at DateTime?
+  created_at  DateTime  @default(now())
+  user        User?     @relation(fields: [user_id], references: [id])
+
+  @@index([phone, code])
+  @@index([token])
+}
+
+model KYC {
+  id                  BigInt         @id @default(autoincrement())
+  creator_id          BigInt         @unique
+  document_type       String // PAN, Aadhar, Passport, etc.
+  document_number     String
+  document_front_url  String?
+  document_back_url   String?
+  selfie_url          String?
+  bank_account_number String?
+  bank_ifsc_code      String?
+  bank_account_holder String?
+  bank_name           String?
+  status              KYCStatus      @default(pending)
+  submitted_at        DateTime       @default(now())
+  verified_at         DateTime?
+  rejected_at         DateTime?
+  rejection_reason    String?
+  verified_by         BigInt?
+  creator             CreatorProfile @relation(fields: [creator_id], references: [id])
+  verifier            User?          @relation("KYCVerifier", fields: [verified_by], references: [id])
+
+  @@index([status])
+}
+
+model PortfolioItem {
+  id          BigInt             @id @default(autoincrement())
+  creator_id  BigInt
+  title       String
+  description String?
+  media_url   String
+  media_type  PortfolioMediaType
+  platform    SocialPlatform?
+  tags        Json? // Store as JSON array
+  is_featured Boolean            @default(false)
+  created_at  DateTime           @default(now())
+  updated_at  DateTime           @updatedAt
+  creator     CreatorProfile     @relation(fields: [creator_id], references: [id])
+
+  @@index([creator_id])
+  @@index([media_type])
+}
+
+enum UserType {
+  brand
+  creator
+  admin
+}
+
+enum UserStatus {
+  active
+  suspended
+  pending
+}
+
+enum CompanySize {
+  ONE_TO_TEN                  @map("1-10")
+  ELEVEN_TO_FIFTY             @map("11-50")
+  FIFTY_ONE_TO_TWO_HUNDRED    @map("51-200")
+  TWO_HUNDRED_ONE_TO_THOUSAND @map("201-1000")
+  THOUSAND_PLUS               @map("1000+")
+}
+
+enum AvailabilityStatus {
+  available
+  busy
+  unavailable
+}
+
+enum SocialPlatform {
+  instagram
+  tiktok
+  youtube
+  twitter
+  facebook
+}
+
+enum CampaignType {
+  sponsored_post
+  story
+  video
+  reel
+  review
+  giveaway
+}
+
+enum CampaignStatus {
+  draft
+  active
+  paused
+  completed
+  cancelled
+}
+
+enum ApplicationStatus {
+  pending
+  accepted
+  rejected
+  withdrawn
+}
+
+enum CollaborationStatus {
+  active
+  content_submitted
+  revision_requested
+  approved
+  completed
+  cancelled
+  disputed
+}
+
+enum ContentType {
+  image
+  video
+  story
+  reel
+  post
+}
+
+enum ContentStatus {
+  draft
+  submitted
+  approved
+  revision_requested
+  rejected
+}
+
+enum ReviewType {
+  approval
+  revision
+  rejection
+}
+
+enum PaymentStatus {
+  pending
+  processing
+  completed
+  failed
+  refunded
+}
+
+enum PaymentMethod {
+  credit_card
+  bank_transfer
+  paypal
+  stripe
+}
+
+enum InvoiceStatus {
+  draft
+  sent
+  paid
+  overdue
+  cancelled
+}
+
+enum MessageType {
+  text
+  file
+  system
+}
+
+enum ReviewDirection {
+  brand_to_creator
+  creator_to_brand
+}
+
+enum SettingType {
+  string
+  number
+  boolean
+  json
+}
+
+enum PackageType {
+  predefined
+  custom
+}
+
+enum KYCStatus {
+  pending
+  verified
+  rejected
+}
+
+enum PortfolioMediaType {
+  image
+  video
+  text
+}
